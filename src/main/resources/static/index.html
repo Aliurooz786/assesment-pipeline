@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal Judgment Analysis System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .container {
+            width: 900px;
+            display: flex;
+            flex-direction: column;
+            height: 95vh;
+            margin-top: 2.5vh;
+            background: #232336;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #313244;
+            color: #cdd6f4;
+            padding: 20px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #45475a;
+        }
+
+        .status {
+            font-size: 0.85rem;
+            background: #a6e3a1;
+            padding: 4px 12px;
+            border-radius: 4px;
+            color: #1e1e2e;
+            display: none;
+            font-weight: 600;
+        }
+
+        .chat-box {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            scroll-behavior: smooth;
+            background-color: #1e1e2e;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 6px;
+            line-height: 1.5;
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background: #313244;
+            border: 1px solid #45475a;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: #89b4fa;
+            color: #1e1e2e;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: #232336;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-top: 1px solid #313244;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid #45475a;
+            background: #1e1e2e;
+            color: white;
+            outline: none;
+            font-family: inherit;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            background: #89b4fa;
+            color: #1e1e2e;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: #b4befe;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #45475a;
+            color: #cdd6f4;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .upload-btn:hover {
+            background: #585b70;
+        }
+
+        .bot b {
+            font-weight: 700;
+            color: #cdd6f4;
+        }
+
+        .bot ul {
+            margin: 8px 0;
+            padding-left: 25px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            Legal Judgment Analysis System
+            <span id="statusBadge" class="status">Indexed</span>
+        </div>
+
+        <div class="chat-box" id="chatBox">
+            <div class="message bot">
+                Welcome to the Legal Judgment Retrieval System
+            </div>
+        </div>
+
+        <div class="input-area">
+            <label class="upload-btn">
+                <span>Upload PDF</span>
+                <input type="file" id="pdfFile" onchange="uploadPDF()">
+            </label>
+            <input type="text" id="queryInput" placeholder="Enter your query here..." onkeypress="handleEnter(event)">
+            <button onclick="sendQuery()">Submit</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8087/api/v1/judgment";
+
+        function appendMessage(text, sender) {
+            const chatBox = document.getElementById("chatBox");
+            const div = document.createElement("div");
+            div.classList.add("message", sender);
+            div.innerHTML = text;
+            chatBox.appendChild(div);
+
+            requestAnimationFrame(() => {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+
+        async function uploadPDF() {
+            const fileInput = document.getElementById("pdfFile");
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            appendMessage(`Uploading and analyzing: <b>${file.name}</b>...`, "user");
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const response = await fetch(`${API_BASE}/extract`, {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const badge = document.getElementById("statusBadge");
+                    badge.style.display = "inline-block";
+                    badge.innerText = "Indexed";
+
+                    const successMsg = `<b>Analysis Complete.</b><br>` +
+                        `Case Title: ${data.title}<br>` +
+                        `Court: ${data.court}<br><br>` +
+                        `The document has been indexed. You may now proceed with queries.`;
+
+                    appendMessage(successMsg, "bot");
+                } else {
+                    appendMessage("Error processing document. Please check server logs.", "bot");
+                }
+            } catch (error) {
+                appendMessage("Connection error. Ensure the backend service is reachable.", "bot");
+            }
+        }
+
+        async function sendQuery() {
+            const input = document.getElementById("queryInput");
+            const query = input.value.trim();
+            if (!query) return;
+
+            appendMessage(query, "user");
+            input.value = "";
+
+            const loadingDiv = document.createElement("div");
+            loadingDiv.classList.add("message", "bot");
+            loadingDiv.innerText = "Processing query...";
+            loadingDiv.id = "loadingMsg";
+            document.getElementById("chatBox").appendChild(loadingDiv);
+
+            try {
+                const response = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (document.getElementById("loadingMsg")) {
+                    document.getElementById("loadingMsg").remove();
+                }
+
+                if (data.answer) {
+                    let formattedAnswer = data.answer
+                        .replace(/\n/g, "<br>")
+                        .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+
+                    appendMessage(formattedAnswer, "bot");
+                } else {
+                    appendMessage("No relevant information found based on the provided query.", "bot");
+                }
+
+            } catch (error) {
+                if (document.getElementById("loadingMsg")) {
+                    document.getElementById("loadingMsg").remove();
+                }
+                appendMessage("Error occurred while fetching response.", "bot");
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') sendQuery();
+        }
+    </script>
+</body>
+
+</html>
